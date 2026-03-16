@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>節税みっけ｜最適役員報酬シミュレーター</title>
+<meta name="description" content="法人と個人の税負担を最小化する役員報酬額をリアルタイムでシミュレーション。税理士が顧問先への説明に使えるプロツール。">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>節</text></svg>">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=DM+Mono:wght@400;500&display=swap');
+
+  :root {
+    --blue: #1a4fa0;
+    --blue-light: #e8eef8;
+    --blue-mid: #3266c0;
+    --green: #0f7a55;
+    --green-light: #e6f4ef;
+    --orange: #c05a1a;
+    --orange-light: #faf0e8;
+    --amber: #a06010;
+    --amber-light: #faf5e8;
+    --bg: #f7f8fa;
+    --card: #ffffff;
+    --border: #e2e6ed;
+    --text: #1a1e2e;
+    --muted: #6b7280;
+    --radius: 12px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Noto Sans JP', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; font-size: 14px; line-height: 1.6; }
+
+  /* PASSWORD */
+  #pw-screen { position: fixed; inset: 0; background: linear-gradient(135deg, #0f1e40 0%, #1a3570 60%, #0d2a5e 100%); display: flex; align-items: center; justify-content: center; z-index: 999; padding: 1.5rem; }
+  .pw-card { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.12); border-radius: 20px; padding: 2.5rem 2rem; width: 100%; max-width: 360px; text-align: center; backdrop-filter: blur(10px); }
+  .pw-icon { font-size: 2.5rem; margin-bottom: 1rem; }
+  .pw-title { color: #fff; font-size: 1.25rem; font-weight: 700; margin-bottom: .3rem; }
+  .pw-sub { color: rgba(255,255,255,0.55); font-size: 12px; margin-bottom: 1.75rem; }
+  .pw-input { width: 100%; padding: .75rem 1rem; border-radius: 10px; border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.08); color: #fff; font-size: 15px; font-family: 'DM Mono', monospace; letter-spacing: .15em; text-align: center; outline: none; margin-bottom: 1rem; transition: border-color .2s; }
+  .pw-input::placeholder { color: rgba(255,255,255,0.3); letter-spacing: .05em; }
+  .pw-input:focus { border-color: rgba(255,255,255,0.5); }
+  .pw-btn { width: 100%; padding: .75rem; border-radius: 10px; border: none; background: #3266c0; color: #fff; font-size: 14px; font-weight: 700; font-family: 'Noto Sans JP', sans-serif; cursor: pointer; transition: background .2s, transform .1s; }
+  .pw-btn:hover { background: #1a4fa0; }
+  .pw-btn:active { transform: scale(0.98); }
+  .pw-error { font-size: 12px; color: #ff8a80; margin-top: .75rem; min-height: 18px; }
+
+  /* APP */
+  #app { display: none; }
+  header { background: var(--blue); color: #fff; padding: 1rem 1.25rem; display: flex; align-items: center; gap: .75rem; }
+  .header-icon { width: 38px; height: 38px; background: rgba(255,255,255,0.15); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; flex-shrink: 0; }
+  .header-title { font-size: 1rem; font-weight: 700; line-height: 1.2; }
+  .header-sub { font-size: 11px; opacity: .7; margin-top: 2px; }
+  .container { max-width: 720px; margin: 0 auto; padding: 1.25rem 1rem 3rem; }
+
+  /* SLIDERS */
+  .slider-block { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.1rem 1.25rem 1rem; margin-bottom: .875rem; }
+  .slider-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: .5rem; }
+  .slider-label { font-size: 13px; color: var(--muted); }
+  .slider-value { font-family: 'DM Mono', monospace; font-size: 15px; font-weight: 500; }
+  input[type=range] { -webkit-appearance: none; width: 100%; height: 5px; border-radius: 4px; background: #dde2ec; outline: none; cursor: pointer; }
+  input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 20px; height: 20px; border-radius: 50%; background: var(--blue); border: 3px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,0.25); cursor: pointer; transition: transform .15s; }
+  input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.15); }
+  .warn-text { font-size: 11px; color: var(--orange); margin-top: .5rem; display: none; }
+
+  /* METRICS */
+  .metrics { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: .75rem; margin-bottom: .875rem; }
+  .metric-card { border-radius: var(--radius); padding: 1rem 1.1rem; border: 1px solid transparent; }
+  .metric-card.blue   { background: var(--blue-light);  border-color: #c5d5ee; }
+  .metric-card.orange { background: var(--orange-light); border-color: #edd5c0; }
+  .metric-card.amber  { background: var(--amber-light);  border-color: #eddfbe; }
+  .metric-card.green  { background: var(--green-light);  border-color: #b0d9c9; }
+  .metric-label { font-size: 11px; margin-bottom: 4px; }
+  .metric-card.blue   .metric-label { color: var(--blue); }
+  .metric-card.orange .metric-label { color: var(--orange); }
+  .metric-card.amber  .metric-label { color: var(--amber); }
+  .metric-card.green  .metric-label { color: var(--green); }
+  .metric-value { font-family: 'DM Mono', monospace; font-size: 1.25rem; font-weight: 500; line-height: 1; }
+  .metric-card.blue   .metric-value { color: var(--blue); }
+  .metric-card.orange .metric-value { color: var(--orange); }
+  .metric-card.amber  .metric-value { color: var(--amber); }
+  .metric-card.green  .metric-value { color: var(--green); }
+
+  /* ADVICE */
+  .advice { border-radius: var(--radius); padding: .875rem 1.1rem; margin-bottom: .875rem; font-size: 13px; font-weight: 500; border-left: 4px solid; display: none; }
+  .advice.optimal  { background: #edf7f2; border-color: #1D9E75; color: #0c5e3e; }
+  .advice.increase { background: #eef3fb; border-color: var(--blue); color: var(--blue); }
+  .advice.decrease { background: #fdf0e8; border-color: var(--orange); color: var(--orange); }
+
+  /* AI SECTION */
+  .ai-section { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: .875rem; overflow: hidden; }
+  .ai-header { display: flex; align-items: center; justify-content: space-between; padding: 1rem 1.25rem; border-bottom: 1px solid var(--border); }
+  .ai-header-left { display: flex; align-items: center; gap: .6rem; }
+  .ai-badge { display: inline-flex; align-items: center; gap: 4px; background: #eef3fb; color: var(--blue); font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 6px; }
+  .ai-title { font-size: 14px; font-weight: 700; color: var(--text); }
+  .ai-btn { display: inline-flex; align-items: center; gap: 6px; padding: .55rem 1.1rem; border-radius: 8px; border: none; background: var(--blue); color: #fff; font-size: 13px; font-weight: 700; font-family: 'Noto Sans JP', sans-serif; cursor: pointer; transition: background .15s, transform .1s; white-space: nowrap; }
+  .ai-btn:hover { background: #1a4fa0; }
+  .ai-btn:active { transform: scale(0.97); }
+  .ai-btn:disabled { background: #a0b0cc; cursor: not-allowed; transform: none; }
+  .ai-body { padding: 1.1rem 1.25rem; display: none; }
+  .ai-result { font-size: 14px; line-height: 1.85; color: var(--text); white-space: pre-wrap; min-height: 48px; }
+  .thinking { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 13px; }
+  .dot-flashing { display: inline-flex; gap: 4px; align-items: center; }
+  .dot-flashing span { width: 6px; height: 6px; border-radius: 50%; background: var(--blue); display: inline-block; animation: dotFlash 1.2s infinite ease-in-out; }
+  .dot-flashing span:nth-child(2) { animation-delay: .2s; }
+  .dot-flashing span:nth-child(3) { animation-delay: .4s; }
+  @keyframes dotFlash { 0%,80%,100%{opacity:.25;transform:scale(.8)} 40%{opacity:1;transform:scale(1)} }
+  .ai-copy-row { display: flex; justify-content: flex-end; margin-top: .875rem; padding-top: .75rem; border-top: 1px solid var(--border); }
+  .copy-btn { display: inline-flex; align-items: center; gap: 5px; padding: .45rem .9rem; border-radius: 7px; border: 1px solid var(--border); background: transparent; color: var(--muted); font-size: 12px; font-family: 'Noto Sans JP', sans-serif; cursor: pointer; transition: background .15s; }
+  .copy-btn:hover { background: var(--bg); color: var(--text); }
+
+  /* CHART */
+  .chart-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.1rem 1.25rem 1rem; margin-bottom: .875rem; }
+  .chart-title { font-size: 12px; color: var(--muted); margin-bottom: .75rem; }
+  .legend { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: .875rem; }
+  .legend-item { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--muted); }
+  .legend-dot { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+  .chart-wrap { position: relative; width: 100%; height: 240px; }
+
+  .print-btn { display: block; width: 100%; margin-bottom: .875rem; padding: .75rem; border-radius: var(--radius); border: 1px solid var(--blue); background: transparent; color: var(--blue); font-size: 13px; font-weight: 700; font-family: 'Noto Sans JP', sans-serif; cursor: pointer; transition: background .15s, color .15s; }
+  .print-btn:hover { background: var(--blue); color: #fff; }
+  .note { font-size: 11px; color: var(--muted); background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: .875rem 1.1rem; line-height: 1.7; }
+
+  @media print { #pw-screen { display: none !important; } .print-btn,.ai-btn { display: none; } }
+</style>
+</head>
+<body>
+
+<div id="pw-screen">
+  <div class="pw-card">
+    <div class="pw-icon">🔐</div>
+    <p class="pw-title">節税みっけ</p>
+    <p class="pw-sub">ご利用にはパスワードが必要です</p>
+    <input type="password" id="pw-input" class="pw-input" placeholder="パスワードを入力" maxlength="30">
+    <button class="pw-btn" onclick="checkPw()">ログイン</button>
+    <p class="pw-error" id="pw-error"></p>
+  </div>
+</div>
+
+<div id="app">
+  <header>
+    <div class="header-icon">節</div>
+    <div>
+      <div class="header-title">節税みっけ</div>
+      <div class="header-sub">最適役員報酬シミュレーター｜中小企業向け</div>
+    </div>
+  </header>
+
+  <div class="container">
+
+    <div class="slider-block">
+      <div class="slider-row">
+        <span class="slider-label">法人の税引前利益（役員報酬支払前）</span>
+        <span class="slider-value" id="lbl-profit">2,000万円</span>
+      </div>
+      <input type="range" id="sl-profit" min="500" max="10000" step="100" value="2000">
+    </div>
+
+    <div class="slider-block">
+      <div class="slider-row">
+        <span class="slider-label">役員報酬額</span>
+        <span class="slider-value" id="lbl-salary">1,000万円</span>
+      </div>
+      <input type="range" id="sl-salary" min="0" max="10000" step="100" value="1000">
+      <p class="warn-text" id="warn-over"></p>
+    </div>
+
+    <div class="metrics">
+      <div class="metric-card blue">
+        <div class="metric-label">法人税等</div>
+        <div class="metric-value" id="c-hojin">―</div>
+      </div>
+      <div class="metric-card orange">
+        <div class="metric-label">所得税＋住民税</div>
+        <div class="metric-value" id="c-shotoku">―</div>
+      </div>
+      <div class="metric-card amber">
+        <div class="metric-label">社会保険料（個人）</div>
+        <div class="metric-value" id="c-shakai">―</div>
+      </div>
+      <div class="metric-card green">
+        <div class="metric-label">役員の手取り</div>
+        <div class="metric-value" id="c-tedori">―</div>
+      </div>
+    </div>
+
+    <div class="advice" id="advice-box"></div>
+
+    <!-- AI診断セクション -->
+    <div class="ai-section">
+      <div class="ai-header">
+        <div class="ai-header-left">
+          <span class="ai-badge">✦ AI</span>
+          <span class="ai-title">AI診断コメントを生成する</span>
+        </div>
+        <button class="ai-btn" id="ai-btn" onclick="runAI()">診断する</button>
+      </div>
+      <div class="ai-body" id="ai-body">
+        <div class="ai-result" id="ai-result"></div>
+        <div class="ai-copy-row" id="ai-copy-row" style="display:none;">
+          <button class="copy-btn" onclick="copyResult()">📋 コピー</button>
+        </div>
+      </div>
+    </div>
+
+    <button class="print-btn" onclick="window.print()">📄 このシミュレーション結果を印刷する</button>
+
+    <div class="chart-card">
+      <div class="chart-title">役員報酬額ごとの税負担内訳（100万円刻み）</div>
+      <div class="legend">
+        <span class="legend-item"><span class="legend-dot" style="background:#3266c0"></span>法人税等</span>
+        <span class="legend-item"><span class="legend-dot" style="background:#c05a1a"></span>所得税＋住民税</span>
+        <span class="legend-item"><span class="legend-dot" style="background:#a06010"></span>社会保険（個人）</span>
+        <span class="legend-item"><span class="legend-dot" style="background:#0f7a55"></span>手取り</span>
+      </div>
+      <div class="chart-wrap"><canvas id="setuzeiChart"></canvas></div>
+    </div>
+
+    <div class="note">
+      ※ 中小企業（資本金1億円以下・同族会社）想定。法人実効税率：課税所得800万以下 約21%・超過 約34%。
+      社会保険料は協会けんぽ東京（令和6年度）。給与所得控除・基礎控除は令和6年基準。
+      本ツールは概算であり、実際の税額は事業内容・各種控除等により異なります。
+      申告・節税対策は担当税理士にご相談ください。
+    </div>
+
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+// ════════════════════════════════
+//  ★ 設定（ここだけ変更してください）
+// ════════════════════════════════
+const CORRECT_PASSWORD = 'spc2025';
+// Cloudflare Workerをデプロイ後にURLを差し替えてください
+const WORKER_URL = 'https://setuzei-mikke-worker.YOUR_SUBDOMAIN.workers.dev';
+
+// ─── パスワード認証 ───
+function checkPw() {
+  const val = document.getElementById('pw-input').value;
+  if (val === CORRECT_PASSWORD) {
+    document.getElementById('pw-screen').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    initApp();
+  } else {
+    document.getElementById('pw-error').textContent = 'パスワードが正しくありません';
+    document.getElementById('pw-input').value = '';
+    document.getElementById('pw-input').focus();
+  }
+}
+document.getElementById('pw-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') checkPw();
+  document.getElementById('pw-error').textContent = '';
+});
+
+// ─── 計算ロジック ───
+const man = 10000;
+const fmt = v => '¥' + Math.round(v / man).toLocaleString() + '万';
+
+function kyuyoKojo(s) {
+  if (s <= 1625000) return 550000;
+  if (s <= 1800000) return s*0.4 - 100000;
+  if (s <= 3600000) return s*0.3 + 80000;
+  if (s <= 6600000) return s*0.2 + 440000;
+  if (s <= 8500000) return s*0.1 + 1100000;
+  return 1950000;
+}
+function shotokuzei(taxable) {
+  const base = Math.max(0, taxable - 480000);
+  const b = [[1950000,0.05],[1300000,0.10],[3650000,0.20],[2050000,0.23],[9000000,0.33],[22000000,0.40],[Infinity,0.45]];
+  let tax = 0, rem = base;
+  for (const [lim,rate] of b) { const t=Math.min(rem,lim); tax+=t*rate; rem-=t; if(rem<=0) break; }
+  return Math.round(tax);
+}
+function juminzei(taxable) { return Math.round(Math.max(0, taxable-430000)*0.10); }
+function shakaihoken(salary) {
+  const m = salary/12;
+  return Math.round((Math.min(m,1390000)*0.0999/2 + Math.min(m,650000)*0.183/2)*12);
+}
+function hojinzei(income) {
+  if (income<=0) return 0;
+  return Math.round(Math.min(income,8000000)*0.214 + Math.max(0,income-8000000)*0.336);
+}
+function calc(profitMan, salaryMan) {
+  const profit=profitMan*man, salary=Math.min(salaryMan,profitMan)*man;
+  const shaKojin=shakaihoken(salary), shaHojin=shaKojin;
+  const hojin=hojinzei(Math.max(0,profit-salary-shaHojin));
+  const kojinKazei=Math.max(0,salary-kyuyoKojo(salary));
+  const shotoku=shotokuzei(kojinKazei), jumin=juminzei(kojinKazei);
+  return { hojin, shotoku, jumin, shaKojin, tedori: salary-shotoku-jumin-shaKojin };
+}
+function findOptimal(profitMan) {
+  let best=-Infinity, bestS=0;
+  for(let s=0;s<=profitMan;s+=50){ const r=calc(profitMan,s); if(r.tedori>best){best=r.tedori;bestS=s;} }
+  return bestS;
+}
+
+// ─── チャート ───
+let chart;
+let currentData = {};
+
+function buildChartData(profitMan) {
+  const step=Math.max(100,Math.floor(profitMan/12/100)*100);
+  const labels=[],hA=[],sA=[],kA=[],tA=[];
+  for(let s=0;s<=profitMan;s+=step){
+    const r=calc(profitMan,s);
+    labels.push((s/100)+'万');
+    hA.push(Math.round(r.hojin/man)); sA.push(Math.round((r.shotoku+r.jumin)/man));
+    kA.push(Math.round(r.shaKojin/man)); tA.push(Math.round(r.tedori/man));
+  }
+  return {labels,hA,sA,kA,tA};
+}
+
+function initApp() {
+  document.getElementById('sl-profit').addEventListener('input', update);
+  document.getElementById('sl-salary').addEventListener('input', update);
+  update();
+}
+
+function update() {
+  const profitMan=+document.getElementById('sl-profit').value;
+  const salaryRaw=+document.getElementById('sl-salary').value;
+  const salaryMan=Math.min(salaryRaw,profitMan);
+
+  document.getElementById('lbl-profit').textContent=profitMan.toLocaleString()+'万円';
+  document.getElementById('lbl-salary').textContent=salaryRaw.toLocaleString()+'万円';
+
+  const warn=document.getElementById('warn-over');
+  if(salaryRaw>profitMan){ warn.style.display='block'; warn.textContent='※ 役員報酬が利益を超えるため '+profitMan.toLocaleString()+'万円 で計算しています'; }
+  else { warn.style.display='none'; }
+
+  const r=calc(profitMan,salaryMan);
+  document.getElementById('c-hojin').textContent=fmt(r.hojin);
+  document.getElementById('c-shotoku').textContent=fmt(r.shotoku+r.jumin);
+  document.getElementById('c-shakai').textContent=fmt(r.shaKojin);
+  document.getElementById('c-tedori').textContent=fmt(r.tedori);
+
+  const optS=findOptimal(profitMan);
+  const box=document.getElementById('advice-box');
+  box.className='advice';
+  const diff=salaryMan-optS;
+  if(Math.abs(diff)<=200){ box.classList.add('optimal'); box.style.display='block'; box.textContent='✅ この役員報酬額は最適ゾーンです！手取りが最大になる水準に近い設定です。'; }
+  else if(diff<0){ box.classList.add('increase'); box.style.display='block'; box.textContent='💡 役員報酬を増やすことで手取りが増える可能性があります（目安：'+optS.toLocaleString()+'万円）'; }
+  else { box.classList.add('decrease'); box.style.display='block'; box.textContent='💡 役員報酬を下げることで手取りが増える可能性があります（目安：'+optS.toLocaleString()+'万円）'; }
+
+  currentData={profitMan,salaryMan,optS,r};
+
+  // スライダー変更時はAI診断を隠す
+  document.getElementById('ai-body').style.display='none';
+  document.getElementById('ai-copy-row').style.display='none';
+
+  const {labels,hA,sA,kA,tA}=buildChartData(profitMan);
+  if(!chart){
+    chart=new Chart(document.getElementById('setuzeiChart'),{
+      type:'bar', data:{ labels, datasets:[
+        {label:'法人税等',       data:hA, backgroundColor:'#3266c0', stack:'a'},
+        {label:'所得税＋住民税', data:sA, backgroundColor:'#c05a1a', stack:'a'},
+        {label:'社会保険',       data:kA, backgroundColor:'#a06010', stack:'a'},
+        {label:'手取り',         data:tA, backgroundColor:'#0f7a55', stack:'a'}
+      ]},
+      options:{ responsive:true, maintainAspectRatio:false,
+        plugins:{ legend:{display:false}, tooltip:{callbacks:{label:c=>c.dataset.label+': ¥'+c.raw.toLocaleString()+'万'}} },
+        scales:{
+          x:{stacked:true, ticks:{font:{size:10},autoSkip:true,maxTicksLimit:12}, grid:{display:false}},
+          y:{stacked:true, ticks:{callback:v=>v+'万',font:{size:10}}, grid:{color:'rgba(0,0,0,0.05)'}}
+        }
+      }
+    });
+  } else {
+    chart.data.labels=labels;
+    chart.data.datasets[0].data=hA; chart.data.datasets[1].data=sA;
+    chart.data.datasets[2].data=kA; chart.data.datasets[3].data=tA;
+    chart.update('none');
+  }
+}
+
+// ─── AI診断（ストリーミング） ───
+async function runAI() {
+  const btn=document.getElementById('ai-btn');
+  const body=document.getElementById('ai-body');
+  const result=document.getElementById('ai-result');
+  const copyRow=document.getElementById('ai-copy-row');
+  const {profitMan,salaryMan,optS,r}=currentData;
+
+  const prompt=`あなたは中小企業専門の税理士アシスタントです。
+以下のシミュレーション結果を分析し、経営者にわかりやすく説明する診断コメントを作成してください。
+
+【シミュレーション結果】
+- 税引前利益（役員報酬支払前）: ${profitMan.toLocaleString()}万円
+- 設定役員報酬: ${salaryMan.toLocaleString()}万円
+- 法人税等: ${Math.round(r.hojin/10000).toLocaleString()}万円
+- 所得税＋住民税: ${Math.round((r.shotoku+r.jumin)/10000).toLocaleString()}万円
+- 社会保険料（個人負担）: ${Math.round(r.shaKojin/10000).toLocaleString()}万円
+- 手取り: ${Math.round(r.tedori/10000).toLocaleString()}万円
+- 手取り最大化の目安役員報酬: ${optS.toLocaleString()}万円
+
+【出力ルール】
+- 「①現状の評価」「②改善のポイント」「③税理士からのアドバイス」の3段構成
+- 各段落3〜4文
+- 専門用語には簡単な説明を添える
+- 親しみやすく、でも信頼感のある文体
+- 合計350〜450文字程度`;
+
+  btn.disabled=true; btn.innerHTML='<span>生成中...</span>';
+  body.style.display='block'; copyRow.style.display='none';
+  result.innerHTML='<div class="thinking"><div class="dot-flashing"><span></span><span></span><span></span></div><span style="margin-left:8px;">AIが診断中です...</span></div>';
+
+  try {
+    const res=await fetch(WORKER_URL,{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({prompt,stream:true})
+    });
+    if(!res.ok) throw new Error('Worker error: '+res.status);
+
+    const reader=res.body.getReader();
+    const decoder=new TextDecoder();
+    let text=''; result.textContent='';
+
+    while(true){
+      const {done,value}=await reader.read();
+      if(done) break;
+      const lines=decoder.decode(value,{stream:true}).split('\n');
+      for(const line of lines){
+        if(!line.startsWith('data: ')) continue;
+        const data=line.slice(6).trim();
+        if(data==='[DONE]') break;
+        try{ const j=JSON.parse(data); text+=(j.delta?.text||''); result.textContent=text; }catch{}
+      }
+    }
+    copyRow.style.display='flex';
+  } catch(err) {
+    result.textContent='⚠️ エラーが発生しました。WorkerのURLを確認してください。\n'+err.message;
+  } finally {
+    btn.disabled=false; btn.innerHTML='<span>再診断する</span>';
+  }
+}
+
+function copyResult(){
+  navigator.clipboard.writeText(document.getElementById('ai-result').textContent).then(()=>{
+    const btn=document.querySelector('.copy-btn');
+    btn.textContent='✅ コピーしました';
+    setTimeout(()=>btn.textContent='📋 コピー',2000);
+  });
+}
+</script>
+</body>
+</html>
