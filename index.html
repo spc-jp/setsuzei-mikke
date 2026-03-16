@@ -255,7 +255,7 @@ document.getElementById('pw-input').addEventListener('keydown', e => {
 if (new Date() <= FREE_UNTIL) {
   document.getElementById('pw-screen').style.display = 'none';
   document.getElementById('app').style.display = 'block';
-  initApp();
+  window.addEventListener('load', initApp);
 }
 
 // ─── 計算ロジック ───
