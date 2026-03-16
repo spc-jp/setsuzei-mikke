@@ -188,8 +188,8 @@
     <div class="ai-section">
       <div class="ai-header">
         <div class="ai-header-left">
-          <span class="ai-badge">✦ AI</span>
-          <span class="ai-title">AI診断コメントを生成する</span>
+          <span class="ai-badge">✦ 診断</span>
+          <span class="ai-title">この数字を診断する</span>
         </div>
         <button class="ai-btn" id="ai-btn" onclick="runAI()">診断する</button>
       </div>
@@ -229,8 +229,8 @@
 // ════════════════════════════════
 //  ★ 設定（ここだけ変更してください）
 // ════════════════════════════════
-const CORRECT_PASSWORD = 'spc2025';
-// Cloudflare Workerをデプロイ後にURLを差し替えてください
+const CORRECT_PASSWORD = 'setsuzei2025';
+const FREE_UNTIL = new Date('2026-03-31T23:59:59');
 const WORKER_URL = 'https://setsuzei-mikke.yymmatsu.workers.dev';
 
 // ─── パスワード認証 ───
@@ -250,6 +250,13 @@ document.getElementById('pw-input').addEventListener('keydown', e => {
   if (e.key === 'Enter') checkPw();
   document.getElementById('pw-error').textContent = '';
 });
+
+// 無料期間中（〜3/31）はパスワードをスキップ
+if (new Date() <= FREE_UNTIL) {
+  document.getElementById('pw-screen').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  initApp();
+}
 
 // ─── 計算ロジック ───
 const man = 10000;
@@ -415,6 +422,14 @@ async function runAI() {
     const decoder=new TextDecoder();
     let text=''; result.textContent='';
 
+    const renderMd = t => t
+      .replace(/^### (.+)$/gm,'<p style="font-size:13px;font-weight:700;color:#6b7280;margin:1rem 0 .25rem;">$1</p>')
+      .replace(/^## (.+)$/gm,'<p style="font-size:14px;font-weight:700;color:#1a4fa0;margin:1rem 0 .3rem;padding-left:.6rem;border-left:3px solid #1a4fa0;">$1</p>')
+      .replace(/^# (.+)$/gm,'<p style="font-size:15px;font-weight:700;color:#1a1e2e;margin:0 0 .5rem;">$1</p>')
+      .replace(/\*\*(.+?)\*\*/g,'<strong style="color:#0f7a55;">$1</strong>')
+      .replace(/\n\n/g,'</p><p style="margin:.5rem 0;">')
+      .replace(/\n/g,'<br>');
+
     while(true){
       const {done,value}=await reader.read();
       if(done) break;
@@ -423,7 +438,7 @@ async function runAI() {
         if(!line.startsWith('data: ')) continue;
         const data=line.slice(6).trim();
         if(data==='[DONE]') break;
-        try{ const j=JSON.parse(data); text+=(j.delta?.text||''); result.textContent=text; }catch{}
+        try{ const j=JSON.parse(data); text+=(j.delta?.text||''); result.innerHTML=renderMd(text); }catch{}
       }
     }
     copyRow.style.display='flex';
