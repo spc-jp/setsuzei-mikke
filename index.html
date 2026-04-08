@@ -42,13 +42,18 @@
   .pw-btn:hover { background: #1a4fa0; }
   .pw-btn:active { transform: scale(0.98); }
   .pw-error { font-size: 12px; color: #ff8a80; margin-top: .75rem; min-height: 18px; }
+  .pw-close { position: absolute; top: 1rem; right: 1.2rem; background: none; border: none; color: rgba(255,255,255,0.5); font-size: 1.5rem; cursor: pointer; line-height: 1; }
+  .pw-close:hover { color: #fff; }
 
   /* APP */
   #app { display: none; }
-  header { background: var(--blue); color: #fff; padding: 1rem 1.25rem; display: flex; align-items: center; gap: .75rem; }
+  header { background: var(--blue); color: #fff; padding: 1rem 1.25rem; display: flex; align-items: center; justify-content: space-between; gap: .75rem; }
+  .header-left { display: flex; align-items: center; gap: .75rem; }
   .header-icon { width: 38px; height: 38px; background: rgba(255,255,255,0.15); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; flex-shrink: 0; }
   .header-title { font-size: 1rem; font-weight: 700; line-height: 1.2; }
   .header-sub { font-size: 11px; opacity: .7; margin-top: 2px; }
+  .login-btn { background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.25); color: #fff; padding: .4rem .7rem; border-radius: 8px; font-size: 12px; font-weight: 700; cursor: pointer; transition: background .15s; font-family: 'Noto Sans JP', sans-serif; }
+  .login-btn:hover { background: rgba(255,255,255,0.25); }
   .container { max-width: 720px; margin: 0 auto; padding: 1.25rem 1rem 3rem; }
 
   /* SLIDERS */
@@ -119,13 +124,34 @@
   .print-btn:hover { background: var(--blue); color: #fff; }
   .note { font-size: 11px; color: var(--muted); background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: .875rem 1.1rem; line-height: 1.7; }
 
-  @media print { #pw-screen { display: none !important; } .print-btn,.ai-btn { display: none; } }
+  /* FREE BANNER (ゴールド固定バナー) */
+  .free-banner {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: linear-gradient(135deg, #dfb754 0%, #fcf3c4 50%, #c49931 100%);
+    color: #1a1e2e;
+    text-align: center;
+    padding: 14px 1rem;
+    font-size: 14px;
+    font-weight: 700;
+    box-shadow: 0 -4px 15px rgba(0,0,0,0.15);
+    z-index: 1000;
+    text-decoration: none;
+    display: none;
+    transition: opacity .2s;
+  }
+  .free-banner:hover { opacity: 0.95; }
+
+  @media print { #pw-screen, .free-banner { display: none !important; } .print-btn,.ai-btn { display: none; } }
 </style>
 </head>
 <body>
 
 <div id="pw-screen">
-  <div class="pw-card">
+  <div class="pw-card" style="position: relative;">
+    <button class="pw-close" onclick="closePw()">×</button>
     <div class="pw-icon">🔐</div>
     <p class="pw-title">節税みっけ</p>
     <p class="pw-sub">ご利用にはパスワードが必要です</p>
@@ -137,11 +163,14 @@
 
 <div id="app">
   <header>
-    <div class="header-icon">節</div>
-    <div>
-      <div class="header-title">節税みっけ</div>
-      <div class="header-sub">最適役員報酬シミュレーター｜中小企業向け</div>
+    <div class="header-left">
+      <div class="header-icon">節</div>
+      <div>
+        <div class="header-title">節税みっけ</div>
+        <div class="header-sub">最適役員報酬シミュレーター｜中小企業向け</div>
+      </div>
     </div>
+    <button class="login-btn" id="login-btn" onclick="openPw()">🔑 ログイン</button>
   </header>
 
   <div class="container">
@@ -224,6 +253,9 @@
   </div>
 </div>
 
+<!-- バナー表示エリア -->
+<a id="free-banner" class="free-banner" href="#" onclick="if(this.getAttribute('href')==='#') return false;"></a>
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
 // ════════════════════════════════
@@ -233,13 +265,32 @@ const CORRECT_PASSWORD = 'setsuzei2025';
 const FREE_UNTIL = new Date('2026-03-31T23:59:59');
 const WORKER_URL = 'https://setsuzei-mikke.yymmatsu.workers.dev';
 
+let isPaidUser = false; // パスワード認証を通過したかどうかのフラグ
+
+// ─── 初期表示 ───
+// 最初はパスワード不要でアプリを表示（無料体験状態）
+document.getElementById('pw-screen').style.display = 'none';
+document.getElementById('app').style.display = 'block';
+window.addEventListener('load', initApp);
+
 // ─── パスワード認証 ───
+function openPw() {
+  document.getElementById('pw-screen').style.display = 'flex';
+  document.getElementById('pw-input').focus();
+}
+
+function closePw() {
+  document.getElementById('pw-screen').style.display = 'none';
+}
+
 function checkPw() {
   const val = document.getElementById('pw-input').value;
   if (val === CORRECT_PASSWORD) {
     document.getElementById('pw-screen').style.display = 'none';
-    document.getElementById('app').style.display = 'block';
-    initApp();
+    isPaidUser = true; // 正規購入者として扱う
+    document.getElementById('login-btn').style.display = 'none'; // ログインボタンを消す
+    updateBanner(); // バナーを更新（非表示になる）
+    alert('ログインしました。すべての機能を制限なくご利用いただけます。');
   } else {
     document.getElementById('pw-error').textContent = 'パスワードが正しくありません';
     document.getElementById('pw-input').value = '';
@@ -251,12 +302,42 @@ document.getElementById('pw-input').addEventListener('keydown', e => {
   document.getElementById('pw-error').textContent = '';
 });
 
-// 無料期間中（〜3/31）はパスワードをスキップ
-if (new Date() <= FREE_UNTIL) {
-  document.getElementById('pw-screen').style.display = 'none';
-  document.getElementById('app').style.display = 'block';
-  window.addEventListener('load', initApp);
+// ─── バナー＆利用回数管理 ───
+function getFreeCount() {
+  return parseInt(localStorage.getItem('setsuzei_free_count') || '0', 10);
 }
+
+function updateBanner() {
+  const banner = document.getElementById('free-banner');
+  if (!banner) return;
+
+  // 正規購入者の場合はバナーを非表示にして終了
+  if (isPaidUser) {
+    banner.style.display = 'none';
+    document.body.style.paddingBottom = '0';
+    return;
+  }
+
+  const count = getFreeCount();
+  banner.style.display = 'block';
+  document.body.style.paddingBottom = '60px'; // バナー分の余白を確保
+
+  if (count === 0) {
+    banner.innerHTML = '🎁 今なら3回まで無料でお試しいただけます（登録不要）';
+    banner.href = '#';
+  } else if (count === 1) {
+    banner.innerHTML = '🎁 無料体験 残り2回（全3回）';
+    banner.href = '#';
+  } else if (count === 2) {
+    banner.innerHTML = '🎁 無料体験 残り1回（全3回）';
+    banner.href = '#';
+  } else {
+    banner.innerHTML = '⚠️ 無料体験が終了しました ご購入はこちら→';
+    // ※購入ページのURLがある場合は以下の # を書き換えてください
+    banner.href = '#buy'; 
+  }
+}
+
 
 // ─── 計算ロジック ───
 const man = 10000;
@@ -317,6 +398,7 @@ function buildChartData(profitMan) {
 }
 
 function initApp() {
+  updateBanner(); // 初期ロード時にバナー状態を反映
   document.getElementById('sl-profit').addEventListener('input', update);
   document.getElementById('sl-salary').addEventListener('input', update);
   update();
@@ -381,6 +463,19 @@ function update() {
 
 // ─── AI診断（ストリーミング） ───
 async function runAI() {
+  // 無料体験（未購入）ユーザー向けの回数制限チェック
+  if (!isPaidUser) {
+    const count = getFreeCount();
+    if (count >= 3) {
+      alert('無料体験の回数（3回）が終了しました。\n引き続き診断機能をご利用いただくにはパスワードを入力してください。');
+      openPw(); // 制限到達時にパスワード画面を表示する
+      return;
+    }
+    // 回数を消費してバナーの表示を更新
+    localStorage.setItem('setsuzei_free_count', count + 1);
+    updateBanner();
+  }
+
   const btn=document.getElementById('ai-btn');
   const body=document.getElementById('ai-body');
   const result=document.getElementById('ai-result');
